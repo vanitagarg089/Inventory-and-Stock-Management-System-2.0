@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-100">
+                    <i class="fa-solid fa-boxes-stacked text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">StockMaster</h1>
+                    <p class="text-xs text-slate-500 font-medium">Inventory & Stock Management System</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- Low Stock Bell Alert Button -->
+                <button id="alert-bell-btn" onclick="filterByStatus('needs_restock')" class="relative p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="View Low Stock Items">
+                    <i class="fa-solid fa-bell text-lg"></i>
+                    <span id="low-stock-badge-dot" class="hidden absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping"></span>
+                    <span id="low-stock-badge-count" class="hidden absolute -top-1 -right-1 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">0</span>
+                </button>
+
+                <!-- API Docs Button -->
+                <a href="/docs" target="_blank" class="text-xs font-medium text-slate-600 hover:text-indigo-600 px-3 py-2 rounded-lg border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all flex items-center space-x-1.5">
+                    <i class="fa-solid fa-code"></i>
+                    <span>API Docs</span>
+                </a>
+
+                <!-- Add Product Button -->
+                <button onclick="openAddProductModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all flex items-center space-x-2">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Add Product</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Low Stock Alert Banner (conditionally displayed) -->
+        <div id="low-stock-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 transition-all">
+            <div class="flex items-start justify-between">
+                <div class="flex items-start space-x-3">
+                    <div class="p-2 bg-amber-100 text-amber-700 rounded-lg mt-0.5">
+                        <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-amber-900" id="low-stock-banner-title">Low Stock Alert Detected</h3>
+                        <p class="text-xs text-amber-700 mt-1" id="low-stock-banner-desc">Some items have fallen below their configured minimum threshold.</p>
+                        <div id="low-stock-banner-items" class="mt-2 flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+                <button onclick="dismissBanner()" class="text-amber-500 hover:text-amber-700 p-1">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard KPI Stats Grid -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Total Products -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Products</span>
+                    <span class="p-2 bg-blue-50 text-blue-600 rounded-lg text-sm"><i class="fa-solid fa-box"></i></span>
+                </div>
+                <div class="mt-3">
+                    <div id="stat-total-products" class="text-2xl font-bold text-slate-900">--</div>
+                    <span class="text-xs text-slate-500 mt-1 block">Active catalog items</span>
+                </div>
+            </div>
+
+            <!-- Total Units in Stock -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Units</span>
+                    <span class="p-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm"><i class="fa-solid fa-layer-group"></i></span>
+                </div>
+                <div class="mt-3">
+                    <div id="stat-total-units" class="text-2xl font-bold text-slate-900">--</div>
+                    <span class="text-xs text-slate-500 mt-1 block">Units currently in warehouse</span>
+                </div>
+            </div>
+
+            <!-- Inventory Valuation -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stock Valuation</span>
+                    <span class="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm"><i class="fa-solid fa-dollar-sign"></i></span>
+                </div>
+                <div class="mt-3">
+                    <div id="stat-total-value" class="text-2xl font-bold text-slate-900">--</div>
+                    <span class="text-xs text-slate-500 mt-1 block">Total retail asset worth</span>
+                </div>
+            </div>
+
+            <!-- Low Stock Items -->
+            <div onclick="filterByStatus('low_stock')" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-amber-300 cursor-pointer transition-all group">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-amber-700">Low Stock</span>
+                    <span class="p-2 bg-amber-50 text-amber-600 rounded-lg text-sm"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                </div>
+                <div class="mt-3 flex items-baseline justify-between">
+                    <div id="stat-low-stock" class="text-2xl font-bold text-amber-600">--</div>
+                    <span class="text-[11px] text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Reorder soon</span>
+                </div>
+            </div>
+
+            <!-- Out of Stock Items -->
+            <div onclick="filterByStatus('out_of_stock')" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-red-300 cursor-pointer transition-all group">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-red-700">Out of Stock</span>
+                    <span class="p-2 bg-red-50 text-red-600 rounded-lg text-sm"><i class="fa-solid fa-ban"></i></span>
+                </div>
+                <div class="mt-3 flex items-baseline justify-between">
+                    <div id="stat-out-of-stock" class="text-2xl font-bold text-red-600">--</div>
+                    <span class="text-[11px] text-red-700 font-medium bg-red-50 px-2 py-0.5 rounded-full border border-red-200">Zero stock</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-200 text-sm font-medium">
+            <button id="tab-inventory" onclick="switchTab('inventory')" class="pb-3 px-4 border-b-2 border-indigo-600 text-indigo-600 flex items-center space-x-2 transition-all">
+                <i class="fa-solid fa-table-list"></i>
+                <span>Inventory & Stock</span>
+            </button>
+            <button id="tab-movements" onclick="switchTab('movements')" class="pb-3 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 transition-all">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Stock Movements / Audit Trail</span>
+            </button>
+            <button id="tab-analytics" onclick="switchTab('analytics')" class="pb-3 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 transition-all">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Analytics & Valuation</span>
+            </button>
+        </div>
+
+        <!-- TAB 1: Inventory Table & Controls -->
+        <div id="view-inventory" class="space-y-4">
+            <!-- Search & Filter Controls Toolbar -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                <!-- Search bar -->
+                <div class="relative flex-1 max-w-md">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="search-input" placeholder="Search by SKU, product name, or category..." class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
+                </div>
+
+                <!-- Filters -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- Category Filter -->
+                    <select id="category-filter" class="text-xs bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                        <option value="all">All Categories</option>
+                    </select>
+
+                    <!-- Status Filter Badges -->
+                    <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-medium">
+                        <button onclick="filterByStatus('all')" id="filter-status-all" class="px-2.5 py-1.5 rounded-md bg-white text-slate-800 shadow-sm transition-all">All</button>
+                        <button onclick="filterByStatus('in_stock')" id="filter-status-in_stock" class="px-2.5 py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition-all">In Stock</button>
+                        <button onclick="filterByStatus('low_stock')" id="filter-status-low_stock" class="px-2.5 py-1.5 rounded-md text-amber-700 hover:text-amber-900 transition-all">Low Stock</button>
+                        <button onclick="filterByStatus('out_of_stock')" id="filter-status-out_of_stock" class="px-2.5 py-1.5 rounded-md text-red-600 hover:text-red-900 transition-all">Out</button>
+                    </div>
+
+                    <!-- Reset Filters Button -->
+                    <button onclick="resetFilters()" class="text-xs text-slate-500 hover:text-indigo-600 px-2.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all" title="Reset Filters">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Product Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            <tr>
+                                <th scope="col" class="px-5 py-3.5">SKU & Product</th>
+                                <th scope="col" class="px-5 py-3.5">Category</th>
+                                <th scope="col" class="px-5 py-3.5">Unit Price / Cost</th>
+                                <th scope="col" class="px-5 py-3.5 min-w-[180px]">Stock Level & Threshold</th>
+                                <th scope="col" class="px-5 py-3.5">Status</th>
+                                <th scope="col" class="px-5 py-3.5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="product-table-body" class="divide-y divide-slate-100">
+                            <!-- Injected dynamically via app.js -->
+                            <tr>
+                                <td colspan="6" class="px-5 py-10 text-center text-slate-400">
+                                    <i class="fa-solid fa-spinner fa-spin text-xl mb-2"></i>
+                                    <p>Loading inventory...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination / Count Footer -->
+                <div class="px-5 py-3 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                    <div>Showing <span id="showing-count" class="font-semibold text-slate-700">0</span> items</div>
+                    <div class="flex items-center space-x-2">
+                        <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> <span>In Stock</span></span>
+                        <span class="flex items-center space-x-1 ml-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span> <span>Low Stock Alert</span></span>
+                        <span class="flex items-center space-x-1 ml-2"><span class="w-2 h-2 rounded-full bg-red-500"></span> <span>Out of Stock</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Stock Movements / Audit Trail -->
+        <div id="view-movements" class="hidden space-y-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Inventory Activity Audit Trail</h3>
+                    <p class="text-xs text-slate-500">Chronological history of restocks, customer dispatches, and inventory audits.</p>
+                </div>
+                <button onclick="loadMovements()" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Refresh Log</span>
+                </button>
+            </div>
+
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            <tr>
+                                <th scope="col" class="px-5 py-3.5">Timestamp</th>
+                                <th scope="col" class="px-5 py-3.5">Product</th>
+                                <th scope="col" class="px-5 py-3.5">Type</th>
+                                <th scope="col" class="px-5 py-3.5">Change</th>
+                                <th scope="col" class="px-5 py-3.5">Balance (Before → After)</th>
+                                <th scope="col" class="px-5 py-3.5">Reason / Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="movements-table-body" class="divide-y divide-slate-100">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Analytics & Category Valuation -->
+        <div id="view-analytics" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Category Value Doughnut Chart -->
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-900 mb-1">Inventory Valuation by Category ($)</h3>
+                    <p class="text-xs text-slate-500 mb-4">Capital allocation distribution across inventory lines</p>
+                    <div class="h-64 flex items-center justify-center">
+                        <canvas id="categoryValueChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Category Quantity Bar Chart -->
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-900 mb-1">Stock Units by Category</h3>
+                    <p class="text-xs text-slate-500 mb-4">Physical unit density across product segments</p>
+                    <div class="h-64 flex items-center justify-center">
+                        <canvas id="categoryUnitsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Summary Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-900">Category Performance Summary</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                            <tr>
+                                <th class="px-6 py-3">Category</th>
+                                <th class="px-6 py-3">Product Count</th>
+                                <th class="px-6 py-3">Total Units in Stock</th>
+                                <th class="px-6 py-3">Total Asset Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="category-summary-body" class="divide-y divide-slate-100">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto py-4">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            StockMaster Inventory & Stock Management System • Python FastAPI + SQLite + SQLAlchemy
+        </div>
+    </footer>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- Add Product Modal -->
+    <div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 overflow-y-auto max-h-[90vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-plus text-indigo-600"></i>
+                    <span>Add New Inventory Item</span>
+                </h3>
+                <button onclick="closeModal('add-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="add-product-form" onsubmit="handleAddProduct(event)" class="mt-4 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">SKU <span class="text-red-500">*</span></label>
+                        <input type="text" name="sku" required placeholder="e.g. ELEC-009" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Category <span class="text-red-500">*</span></label>
+                        <input type="text" name="category" required placeholder="e.g. Electronics" list="category-datalist" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                        <datalist id="category-datalist"></datalist>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Product Name <span class="text-red-500">*</span></label>
+                    <input type="text" name="name" required placeholder="e.g. Wireless Ergonomic Mouse" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Description</label>
+                    <textarea name="description" rows="2" placeholder="Item specifications or supplier details..." class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Retail Selling Price ($) <span class="text-red-500">*</span></label>
+                        <input type="number" step="0.01" min="0" name="price" required placeholder="0.00" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Cost / Purchase Price ($)</label>
+                        <input type="number" step="0.01" min="0" name="cost_price" value="0.00" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Initial Qty <span class="text-red-500">*</span></label>
+                        <input type="number" min="0" name="quantity" value="0" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Low Alert At <span class="text-red-500">*</span></label>
+                        <input type="number" min="0" name="min_threshold" value="10" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Unit</label>
+                        <input type="text" name="unit" value="pcs" required placeholder="pcs, kg, box" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closeModal('add-modal')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                    <button type="submit" class="px-5 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Product Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 overflow-y-auto max-h-[90vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                    <i class="fa-solid fa-pen-to-square text-indigo-600"></i>
+                    <span>Edit Product Details</span>
+                </h3>
+                <button onclick="closeModal('edit-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="edit-product-form" onsubmit="handleEditProduct(event)" class="mt-4 space-y-4">
+                <input type="hidden" id="edit-product-id" name="id">
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">SKU</label>
+                        <input type="text" id="edit-sku" name="sku" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Category</label>
+                        <input type="text" id="edit-category" name="category" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Product Name</label>
+                    <input type="text" id="edit-name" name="name" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Description</label>
+                    <textarea id="edit-description" name="description" rows="2" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Retail Selling Price ($)</label>
+                        <input type="number" step="0.01" min="0" id="edit-price" name="price" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Cost / Purchase Price ($)</label>
+                        <input type="number" step="0.01" min="0" id="edit-cost-price" name="cost_price" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Low Stock Alert Threshold</label>
+                        <input type="number" min="0" id="edit-min-threshold" name="min_threshold" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">Unit</label>
+                        <input type="text" id="edit-unit" name="unit" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closeModal('edit-modal')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                    <button type="submit" class="px-5 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">Update Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Quick Stock Adjust Modal -->
+    <div id="adjust-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                    <i class="fa-solid fa-arrow-right-arrow-left text-indigo-600"></i>
+                    <span>Adjust Stock Level</span>
+                </h3>
+                <button onclick="closeModal('adjust-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Product:</span>
+                    <span id="adjust-prod-name" class="font-semibold text-slate-800"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">SKU:</span>
+                    <span id="adjust-prod-sku" class="font-mono text-slate-700"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Current Stock:</span>
+                    <span id="adjust-prod-qty" class="font-bold text-indigo-600 text-sm"></span>
+                </div>
+            </div>
+
+            <form id="adjust-stock-form" onsubmit="handleStockAdjust(event)" class="mt-4 space-y-4">
+                <input type="hidden" id="adjust-product-id" name="product_id">
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Adjustment Type <span class="text-red-500">*</span></label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="border border-slate-200 rounded-lg p-2.5 text-center cursor-pointer hover:bg-slate-50 flex flex-col items-center space-y-1">
+                            <input type="radio" name="movement_type" value="IN" checked class="text-indigo-600">
+                            <span class="text-xs font-semibold text-emerald-700">+ Restock (IN)</span>
+                        </label>
+                        <label class="border border-slate-200 rounded-lg p-2.5 text-center cursor-pointer hover:bg-slate-50 flex flex-col items-center space-y-1">
+                            <input type="radio" name="movement_type" value="OUT" class="text-indigo-600">
+                            <span class="text-xs font-semibold text-rose-700">- Dispatch (OUT)</span>
+                        </label>
+                        <label class="border border-slate-200 rounded-lg p-2.5 text-center cursor-pointer hover:bg-slate-50 flex flex-col items-center space-y-1">
+                            <input type="radio" name="movement_type" value="ADJUSTMENT" class="text-indigo-600">
+                            <span class="text-xs font-semibold text-slate-700">Audit / Count</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1" id="adjust-qty-label">Quantity to Add <span class="text-red-500">*</span></label>
+                    <input type="number" id="adjust-quantity" name="quantity" min="1" required class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Reason / Notes</label>
+                    <input type="text" id="adjust-reason" name="reason" placeholder="e.g. Supplier delivery, Customer order #1042, Damaged inventory" class="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closeModal('adjust-modal')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                    <button type="submit" class="px-5 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm">Confirm Adjustment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-200 text-center">
+            <div class="mx-auto w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
+                <i class="fa-solid fa-trash-can text-lg"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-900">Delete Product?</h3>
+            <p class="text-xs text-slate-500 mt-1">Are you sure you want to delete <span id="delete-prod-name" class="font-semibold text-slate-800"></span>? This will permanently remove the item and all its stock history.</p>
+
+            <div class="mt-6 flex items-center justify-center space-x-3">
+                <button type="button" onclick="closeModal('delete-modal')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button id="confirm-delete-btn" class="px-5 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- JavaScript Application Logic -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

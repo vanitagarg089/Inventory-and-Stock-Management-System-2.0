@@ -1,0 +1,103 @@
+/* Custom application styles & transitions */
+:root {
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
+}
+
+/* Glassmorphism card accents */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Modal Animations */
+.modal-backdrop {
+    transition: opacity 0.25s ease-out;
+}
+.modal-content {
+    transition: transform 0.25s ease-out, opacity 0.25s ease-out;
+}
+
+/* Stock status badges */
+.badge-in-stock {
+    background-color: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.badge-low-stock {
+    background-color: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    animation: subtle-pulse 2s infinite ease-in-out;
+}
+
+.badge-out-stock {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+@keyframes subtle-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.82; }
+}
+
+/* Stock bar indicators */
+.stock-bar-bg {
+    background-color: #e2e8f0;
+    height: 6px;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.stock-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.4s ease-in-out;
+}
+
+/* Toast notifications */
+#toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(20px);
+    opacity: 0;
+}
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
